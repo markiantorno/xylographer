@@ -1,0 +1,37 @@
+apply plugin: 'groovy'
+apply plugin: 'java-gradle-plugin'
+apply plugin: 'maven-publish'
+
+group = 'com.iantorno.xylographer'
+version = '1.0.0'
+
+repositories {
+    mavenCentral()
+}
+
+gradlePlugin {
+    plugins {
+        demoPlugin {
+            id = project.group
+            implementationClass = 'com.iantorno.xylographer.Xylographer'
+        }
+    }
+}
+
+dependencies {
+    compile localGroovy()
+    compile gradleApi()
+
+    testCompile group: 'junit', name: 'junit', version: '4.12'
+}
+
+publishing {
+    publications {
+        pluginPublication (MavenPublication) {
+            from            components.java
+            groupId         project.group
+            artifactId      "Xylographer"
+            version         project.version
+        }
+    }
+}
