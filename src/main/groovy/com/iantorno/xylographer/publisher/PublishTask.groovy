@@ -6,6 +6,7 @@ import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskAction
 
+import javax.annotation.Nonnull
 import java.util.regex.Matcher
 
 /**
@@ -31,28 +32,68 @@ class PublishTask extends DefaultTask {
         println "${message}, ${target}!"
 
         project.configure(project) {
-            // Check if plugin works on an Android module
-            if (it.hasProperty("android")) {
-                // Iterate over app build variants (build types + flavors)
-                project.android.applicationVariants.all { variant ->
-                    // Only change debug build type variants
-                    if (variant.buildType.name == project.android.buildTypes.debug.name) {
-                        // Rename versionName
-                        def customVersionName = variant.mergedFlavor.versionName
-                        println "version name: ${customVersionName}"
-                        variant.mergedFlavor.versionName = customVersionName + " custom"
-                        println "version name combined: ${variant.mergedFlavor.versionName}"
+            def plugins = project.getPlugins()
+            if (plugins.hasPlugin('android') || plugins.hasPlugin('android-library')) {
+                android {
+                    def versionFile = new File(project.rootDir, 'version.properties')
+                    if (versionFile.exists()) {
+                        println "versioning file exists"
+//                        incrementVersionProperty(versionFile, ReleaseType.VERSION_BUILD)
+                    } else {
+                        println "versioning file doesn't exist, creating as new"
+                        versionFile.createNewFile()
+                        initializeVersionFile(versionFile)
                     }
+//                    defaultConfig {
+//                        versionName = calculateVersionName()
+//                        versionCode = calculateVersionCode()
+//                    }
+//
+//                    afterEvaluate {
+//                        def autoIncrementVariant = { variant ->
+//                            if (variant.buildType.name == buildTypes.release.name) { // don't increment on debug builds
+//                                variant.preBuild.dependsOn incrementVersion
+//                                incrementVersion.doLast {
+//                                    variant.mergedFlavor.versionName = calculateVersionName()
+//                                    variant.mergedFlavor.versionCode = calculateVersionCode()
+//                                }
+//                            }
+//                        }
+                        if (plugins.hasPlugin('android')) {
+                            println "has plugin android"
+                            incrementProperty(versionFile, ReleaseType.VERSION_MINOR)
+//                            applicationVariants.all { variant -> autoIncrementVariant(variant) }
+                        }
+                        if (plugins.hasPlugin('android-library')) {
+                            println "has plugin android-library"
+//                            libraryVariants.all { variant -> autoIncrementVariant(variant) }
+                        }
+//                    }
                 }
             }
+
+//            // Check if plugin works on an Android module
+//            if (it.hasProperty("android")) {
+//                // Iterate over app build variants (build types + flavors)
+//                project.android.applicationVariants.all { variant ->
+//                    // Only change debug build type variants
+//                    if (variant.buildType.name == project.android.buildTypes.debug.name) {
+//                        // Rename versionName
+//                        def customVersionName = variant.mergedFlavor.versionName
+//                        println "version name: ${customVersionName}"
+//                        variant.mergedFlavor.versionName = customVersionName + " custom"
+//                        println "version name combined: ${variant.mergedFlavor.versionName}"
+//                    }
+//                }
+//            }
         }
     }
 
-    static def renameDebugAppVersionName(variant) {
-        def customVersionName = variant.mergedFlavor.versionName + getCurrentBranchCodeName()
-        variant.mergedFlavor.versionName = customVersionName
-        println "${variant.name} version name: ${customVersionName}"
-    }
+//    static def renameDebugAppVersionName(variant) {
+//        def customVersionName = variant.mergedFlavor.versionName + getCurrentBranchCodeName()
+//        variant.mergedFlavor.versionName = customVersionName
+//        println "${variant.name} version name: ${customVersionName}"
+//    }
 
     static def getCurrentBranchCodeName() {
         def currentBranchName = 'git rev-parse --abbrev-ref HEAD'.execute().text.trim()
@@ -83,6 +124,95 @@ class PublishTask extends DefaultTask {
         return branchTicketCode
     }
 
+
+///////////////////////////////
+
+    /**
+     * Initializes version file with all 0 values for each release type.
+     * @param file {@link File} to store properties in
+     */
+    void initializeVersionFile(@Nonnull File file) {
+        for (ReleaseType type : ReleaseType.values()) {
+             setProperty(file, type as String, 0)
+        }
+    }
+
+    /**
+     * Increments the given property by 1.
+     * N.B. This will cascade and reset to 0, all lesser release types.
+     *
+     * @param propertiesFile {@link File} containing properties data
+     * @param type {@link ReleaseType}
+     */
+    void incrementProperty(@Nonnull File propertiesFile, @Nonnull ReleaseType type) {
+        Properties propertiesValues = loadVersionProperties(propertiesFile)
+
+        for (ReleaseType releaseType : ReleaseType.values().reverse()) {
+            String property = propertiesValues.getProperty(releaseType as String)
+            if(releaseType.equals(type)) {
+                if (property == null) {
+                    setProperty(propertiesFile, releaseType as String, 1)
+                } else {
+                    setProperty(propertiesFile, releaseType as String, property.toInteger() + 1)
+                }
+                break
+            } else {
+                setProperty(propertiesFile, releaseType as String, 0)
+            }
+        }
+        printCurrentProperties(propertiesValues)
+    }
+
+    /**
+     * Writes the given key value pair to the properties file.
+     *
+     * @param propertiesFile {@link File} containing the properties to edit
+     * @param key {@link String} key to associate with value
+     * @param value {@link Integer} value to store
+     */
+    void setProperty(@Nonnull File propertiesFile, @Nonnull String key, int value) {
+        Properties propertiesValues = loadVersionProperties(propertiesFile)
+        propertiesValues.setProperty(key, value.toString())
+        propertiesValues.store(propertiesFile.newWriter(), null)
+    }
+
+    /**
+     * Gets the given key value pair to the properties file.
+     *
+     * @param propertiesFile {@link File} containing the properties to edit
+     * @param key {@link String} key to associate with value
+     * @param value {@link Integer} value to store
+     */
+    int getProperty(@Nonnull File propertiesFile, @Nonnull String key) {
+        Properties propertiesValues = loadVersionProperties(propertiesFile)
+        def property = propertiesValues.getProperty(key, "0")
+        return property.toString()
+    }
+
+    /**
+     * Loads the 'version.properties' file for reading. Throws FileNotFoundException if no such
+     * file exists.
+     * @return {@link Properties} read from file.
+     */
+    Properties loadVersionProperties(File file) {
+        if (!file.canRead()) {
+            throw new FileNotFoundException("Could not read version.properties!")
+        }
+        Properties versionProps = new Properties()
+        versionProps.load(new FileInputStream(file))
+        return versionProps
+    }
+
+    /**
+     * Dumps the current propertis to the console.
+     * @param properties {@link Properties} to display in console
+     */
+    void printCurrentProperties(Properties properties) {
+        properties.each { prop, val ->
+            println(prop + ": " + val)
+        }
+    }
+
     /**
      * Builds an Android version code from the version of the project.
      * This is designed to handle the -SNAPSHOT and -RC format.
@@ -92,31 +222,25 @@ class PublishTask extends DefaultTask {
      * And the final release is without any suffix.
      * @return
      */
-    @Input
-    public static int buildVersionCode(version_code) {
-        //The rules is as follows:
-        //-SNAPSHOT counts as 0
-        //-RC* counts as the RC number, i.e. 1 to 98
-        //final release counts as 99.
-        //Thus you can only have 98 Release Candidates, which ought to be enough for everyone
+    String buildVersionCode(@Nonnull File propertiesFile, @Nonnull ReleaseType type) {
+        def major = getProperty(propertiesFile, ReleaseType.VERSION_MAJOR as String)
+        def minor = getProperty(propertiesFile, ReleaseType.VERSION_MINOR as String)
+        def revision = getProperty(propertiesFile, ReleaseType.VERSION_REVISION as String)
+        def build = getProperty(propertiesFile, ReleaseType.VERSION_BUILD as String)
 
-        def candidate = "99"
-        def (major, minor, patch) = version_code.toLowerCase().replaceAll('-', '').tokenize('.')
-        if (patch.endsWith("snapshot")) {
-            candidate = "0"
-            patch = patch.replaceAll("[^0-9]", "")
-        } else {
-            def rc
-            (patch, rc) = patch.tokenize("rc")
-            if (rc) {
-                candidate = rc
-            }
-        }
 
-        (major, minor, patch, candidate) = [major, minor, patch, candidate].collect {
-            it.toInteger()
-        }
+        return ((major * 10000000) + (minor * 100000) + (revision * 1000) + (build * 1))
+    }
 
-        return ((major * 1000000) + (minor * 10000) + (patch * 100) + candidate)
+    int buildVersionNumber(@Nonnull File propertiesFile, @Nonnull ReleaseType type) {
+        def major = getProperty(propertiesFile, ReleaseType.VERSION_MAJOR as String)
+        def minor = getProperty(propertiesFile, ReleaseType.VERSION_MINOR as String)
+        def revision = getProperty(propertiesFile, ReleaseType.VERSION_REVISION as String)
+        def build = getProperty(propertiesFile, ReleaseType.VERSION_BUILD as String)
+
+
+        return ((major * 100000000) + (minor * 1000000) + (revision * 1000) + (build * 1))
     }
 }
+
+
