@@ -2,6 +2,7 @@ package com.iantorno.xylographer.publisher
 
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
+import org.gradle.api.invocation.Gradle
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskAction
@@ -59,15 +60,36 @@ class PublishTask extends DefaultTask {
 //                                }
 //                            }
 //                        }
-                        if (plugins.hasPlugin('android')) {
-                            println "has plugin android"
-                            incrementProperty(versionFile, ReleaseType.VERSION_MINOR)
-//                            applicationVariants.all { variant -> autoIncrementVariant(variant) }
-                        }
-                        if (plugins.hasPlugin('android-library')) {
-                            println "has plugin android-library"
-//                            libraryVariants.all { variant -> autoIncrementVariant(variant) }
-                        }
+
+                    Gradle gradle = project.getGradle()
+                    String  taskReqStr = gradle.getStartParameter().getTaskRequests().toString()
+                    println(taskReqStr)
+
+                    // Iterate over app build variants (build types + flavors)
+                    project.android.applicationVariants.all { variant ->
+
+                        println("BUILD TYPE: " + variant.buildType.name)
+                        // Only change debug build type variants
+//                        if (variant.buildType.name == project.android.buildTypes.debug.name) {
+//                            // Rename versionName
+//                            def customVersionName = variant.mergedFlavor.versionName
+//                            println "version name: ${customVersionName}"
+//                            variant.mergedFlavor.versionName = customVersionName + " custom"
+//                            println "version name combined: ${variant.mergedFlavor.versionName}"
+//                        }
+
+
+//                        if (plugins.hasPlugin('android')) {
+//                            println "has plugin android"
+////                            incrementProperty(versionFile, ReleaseType.VERSION_MINOR)
+//                            println("Version Number: " + buildVersionNumber(versionFile, ReleaseType.VERSION_BUILD))
+////                            applicationVariants.all { variant -> autoIncrementVariant(variant) }
+//                        }
+//                        if (plugins.hasPlugin('android-library')) {
+//                            println "has plugin android-library"
+////                            libraryVariants.all { variant -> autoIncrementVariant(variant) }
+//                        }
+                    }
 //                    }
                 }
             }
@@ -88,6 +110,7 @@ class PublishTask extends DefaultTask {
 //            }
         }
     }
+
 
 //    static def renameDebugAppVersionName(variant) {
 //        def customVersionName = variant.mergedFlavor.versionName + getCurrentBranchCodeName()
@@ -186,7 +209,7 @@ class PublishTask extends DefaultTask {
     int getProperty(@Nonnull File propertiesFile, @Nonnull String key) {
         Properties propertiesValues = loadVersionProperties(propertiesFile)
         def property = propertiesValues.getProperty(key, "0")
-        return property.toString()
+        return property.toInteger()
     }
 
     /**
@@ -227,9 +250,9 @@ class PublishTask extends DefaultTask {
         def minor = getProperty(propertiesFile, ReleaseType.VERSION_MINOR as String)
         def revision = getProperty(propertiesFile, ReleaseType.VERSION_REVISION as String)
         def build = getProperty(propertiesFile, ReleaseType.VERSION_BUILD as String)
+        return " "
 
-
-        return ((major * 10000000) + (minor * 100000) + (revision * 1000) + (build * 1))
+        //return ((major * 10000000) + (minor * 100000) + (revision * 1000) + (build * 1))
     }
 
     int buildVersionNumber(@Nonnull File propertiesFile, @Nonnull ReleaseType type) {
@@ -239,7 +262,7 @@ class PublishTask extends DefaultTask {
         def build = getProperty(propertiesFile, ReleaseType.VERSION_BUILD as String)
 
 
-        return ((major * 100000000) + (minor * 1000000) + (revision * 1000) + (build * 1))
+        return ((major * 10000000) + (minor * 100000) + (revision * 1000) + (build * 1))
     }
 }
 

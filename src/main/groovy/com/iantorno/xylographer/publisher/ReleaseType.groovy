@@ -1,8 +1,18 @@
 package com.iantorno.xylographer.publisher
 
 enum ReleaseType {
-    VERSION_MAJOR,
-    VERSION_MINOR,
-    VERSION_REVISION,
-    VERSION_BUILD
+    VERSION_MAJOR("major"),
+    VERSION_MINOR("minor"),
+    VERSION_REVISION("revision"),
+    VERSION_BUILD("release");
+
+    final String mIdLabel
+
+    ReleaseType(String identifyingLabel) {
+        mIdLabel = identifyingLabel
+    }
+
+    String getIdentifyingLabel() {
+        return mIdLabel
+    }
 }
