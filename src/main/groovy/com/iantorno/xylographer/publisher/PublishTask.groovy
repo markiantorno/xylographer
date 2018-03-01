@@ -1,122 +1,54 @@
 package com.iantorno.xylographer.publisher
 
 import org.gradle.api.DefaultTask
-import org.gradle.api.GradleException
 import org.gradle.api.invocation.Gradle
-import org.gradle.api.tasks.Input
-import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskAction
 
 import javax.annotation.Nonnull
 import java.util.regex.Matcher
 
 /**
- * A custom task type, allows projects to create tasks of type 'PublishTask'
- * Reference:
- * https://docs.gradle.org/3.3/userguide/more_about_tasks.html#sec:task_input_output_annotations
- * Example 19.23
+ *
  */
 class PublishTask extends DefaultTask {
 
-    @Internal
-    String message = "Hello"
-
-    @Internal
-    String target = "World"
-
     @TaskAction
     void publish() {
-        if (message.toLowerCase(Locale.ROOT).contains("bye")) {
-            throw new GradleException("I can't let you do that, Starfox.")
-        }
-
-        println "${message}, ${target}!"
-
         project.configure(project) {
             def plugins = project.getPlugins()
             if (plugins.hasPlugin('android') || plugins.hasPlugin('android-library')) {
-                android {
-                    def versionFile = new File(project.rootDir, 'version.properties')
-                    if (versionFile.exists()) {
-                        println "versioning file exists"
-//                        incrementVersionProperty(versionFile, ReleaseType.VERSION_BUILD)
-                    } else {
-                        println "versioning file doesn't exist, creating as new"
-                        versionFile.createNewFile()
-                        initializeVersionFile(versionFile)
+                def versionFile = new File(project.rootDir, 'version.properties')
+                if (versionFile.exists()) {
+                    println "versioning file exists"
+                } else {
+                    println "versioning file doesn't exist, creating as new"
+                    versionFile.createNewFile()
+                    initializeVersionFile(versionFile)
+                }
+
+                Gradle gradle = project.getGradle()
+                ReleaseType releaseType = determineReleaseTypeFromIdString(getBuildIdentifierString(gradle))
+                incrementProperty(versionFile, releaseType)
+
+                if (plugins.hasPlugin('android')) {
+                    println("This has been identified as a non-library project, and will versioned accordingly...")
+                    android.applicationVariants.all { variant ->
+                        variant.outputs.all {
+                            setVersionCodeOverride(buildVersionCode(versionFile, releaseType))
+                            setVersionNameOverride("MARKIANTORNO")
+                        }
                     }
-//                    defaultConfig {
-//                        versionName = calculateVersionName()
-//                        versionCode = calculateVersionCode()
-//                    }
-//
-//                    afterEvaluate {
-//                        def autoIncrementVariant = { variant ->
-//                            if (variant.buildType.name == buildTypes.release.name) { // don't increment on debug builds
-//                                variant.preBuild.dependsOn incrementVersion
-//                                incrementVersion.doLast {
-//                                    variant.mergedFlavor.versionName = calculateVersionName()
-//                                    variant.mergedFlavor.versionCode = calculateVersionCode()
-//                                }
-//                            }
-//                        }
-
-                    Gradle gradle = project.getGradle()
-                    String  taskReqStr = gradle.getStartParameter().getTaskRequests().toString()
-                    println(taskReqStr)
-
-                    // Iterate over app build variants (build types + flavors)
-                    project.android.applicationVariants.all { variant ->
-
-                        println("BUILD TYPE: " + variant.buildType.name)
-                        // Only change debug build type variants
-//                        if (variant.buildType.name == project.android.buildTypes.debug.name) {
-//                            // Rename versionName
-//                            def customVersionName = variant.mergedFlavor.versionName
-//                            println "version name: ${customVersionName}"
-//                            variant.mergedFlavor.versionName = customVersionName + " custom"
-//                            println "version name combined: ${variant.mergedFlavor.versionName}"
-//                        }
-
-
-//                        if (plugins.hasPlugin('android')) {
-//                            println "has plugin android"
-////                            incrementProperty(versionFile, ReleaseType.VERSION_MINOR)
-//                            println("Version Number: " + buildVersionNumber(versionFile, ReleaseType.VERSION_BUILD))
-////                            applicationVariants.all { variant -> autoIncrementVariant(variant) }
-//                        }
-//                        if (plugins.hasPlugin('android-library')) {
-//                            println "has plugin android-library"
-////                            libraryVariants.all { variant -> autoIncrementVariant(variant) }
-//                        }
+                } else if (plugins.hasPlugin('android-library')) {
+                    println("This has been identified as a library project, and will versioned accordingly...")
+                    android.libraryVariants.all { variant ->
+                        variant.outputs.all {
+                            //TODO
+                        }
                     }
-//                    }
                 }
             }
-
-//            // Check if plugin works on an Android module
-//            if (it.hasProperty("android")) {
-//                // Iterate over app build variants (build types + flavors)
-//                project.android.applicationVariants.all { variant ->
-//                    // Only change debug build type variants
-//                    if (variant.buildType.name == project.android.buildTypes.debug.name) {
-//                        // Rename versionName
-//                        def customVersionName = variant.mergedFlavor.versionName
-//                        println "version name: ${customVersionName}"
-//                        variant.mergedFlavor.versionName = customVersionName + " custom"
-//                        println "version name combined: ${variant.mergedFlavor.versionName}"
-//                    }
-//                }
-//            }
         }
     }
-
-
-//    static def renameDebugAppVersionName(variant) {
-//        def customVersionName = variant.mergedFlavor.versionName + getCurrentBranchCodeName()
-//        variant.mergedFlavor.versionName = customVersionName
-//        println "${variant.name} version name: ${customVersionName}"
-//    }
 
     static def getCurrentBranchCodeName() {
         def currentBranchName = 'git rev-parse --abbrev-ref HEAD'.execute().text.trim()
@@ -147,8 +79,37 @@ class PublishTask extends DefaultTask {
         return branchTicketCode
     }
 
-
 ///////////////////////////////
+
+    /**
+     * Returns the {@link Gradle}.getStartParameter().getTaskRequests()
+     * @param gradleInstance {@link Gradle}
+     * @return {@link String} build task identifier
+     */
+    String getBuildIdentifierString(@Nonnull Gradle gradleInstance) {
+        String taskReqStr = gradleInstance.getStartParameter().getTaskRequests().toString()
+        println("Task identifier for this build task -> " + taskReqStr)
+    }
+
+    /**
+     * Parses the passed inidString for one of the {ReleaseType#mIdLabel} and returns the associated {@link ReleaseType}
+     * @param idString The identifier from {@link Gradle}.getStartParameter().getTaskRequests()
+     * @return The associated {@link ReleaseType}, or {@link ReleaseType#VERSION_BUILD} if no match is found
+     */
+    ReleaseType determineReleaseTypeFromIdString(String idString) {
+        ReleaseType returnType = ReleaseType.VERSION_BUILD
+        if (idString != null) {
+            if (idString.toLowerCase().contains(ReleaseType.VERSION_MAJOR.getIdentifyingLabel().toLowerCase())) {
+                returnType = ReleaseType.VERSION_MAJOR
+            } else if (idString.toLowerCase().contains(ReleaseType.VERSION_MINOR.getIdentifyingLabel().toLowerCase())) {
+                returnType = ReleaseType.VERSION_MINOR
+            } else if (idString.toLowerCase().contains(ReleaseType.VERSION_REVISION.getIdentifyingLabel().toLowerCase())) {
+                returnType = ReleaseType.VERSION_REVISION
+            }
+        }
+        println("Based on the passed in task id String {" + idString + "}, the rusulting Release type is -> " + returnType)
+        return returnType
+    }
 
     /**
      * Initializes version file with all 0 values for each release type.
@@ -156,7 +117,7 @@ class PublishTask extends DefaultTask {
      */
     void initializeVersionFile(@Nonnull File file) {
         for (ReleaseType type : ReleaseType.values()) {
-             setProperty(file, type as String, 0)
+            setProperty(file, type as String, 0)
         }
     }
 
@@ -172,7 +133,7 @@ class PublishTask extends DefaultTask {
 
         for (ReleaseType releaseType : ReleaseType.values().reverse()) {
             String property = propertiesValues.getProperty(releaseType as String)
-            if(releaseType.equals(type)) {
+            if (releaseType.equals(type)) {
                 if (property == null) {
                     setProperty(propertiesFile, releaseType as String, 1)
                 } else {
@@ -183,7 +144,7 @@ class PublishTask extends DefaultTask {
                 setProperty(propertiesFile, releaseType as String, 0)
             }
         }
-        printCurrentProperties(propertiesValues)
+        printCurrentProperties(loadVersionProperties(propertiesFile))
     }
 
     /**
@@ -245,14 +206,15 @@ class PublishTask extends DefaultTask {
      * And the final release is without any suffix.
      * @return
      */
-    String buildVersionCode(@Nonnull File propertiesFile, @Nonnull ReleaseType type) {
+    int buildVersionCode(@Nonnull File propertiesFile, @Nonnull ReleaseType type) {
         def major = getProperty(propertiesFile, ReleaseType.VERSION_MAJOR as String)
         def minor = getProperty(propertiesFile, ReleaseType.VERSION_MINOR as String)
         def revision = getProperty(propertiesFile, ReleaseType.VERSION_REVISION as String)
         def build = getProperty(propertiesFile, ReleaseType.VERSION_BUILD as String)
-        return " "
 
-        //return ((major * 10000000) + (minor * 100000) + (revision * 1000) + (build * 1))
+        int versionCode = ((major * 10000000) + (minor * 100000) + (revision * 1000) + (build * 1))
+        println("Version code -> " + versionCode)
+        return versionCode
     }
 
     int buildVersionNumber(@Nonnull File propertiesFile, @Nonnull ReleaseType type) {

@@ -4,7 +4,7 @@ enum ReleaseType {
     VERSION_MAJOR("major"),
     VERSION_MINOR("minor"),
     VERSION_REVISION("revision"),
-    VERSION_BUILD("release");
+    VERSION_BUILD("build")
 
     final String mIdLabel
 
