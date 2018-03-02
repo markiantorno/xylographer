@@ -12,31 +12,43 @@ import java.util.regex.Matcher
  */
 class PublishTask extends DefaultTask {
 
+    static final String FILE_NAME = 'version.properties'
+
     @TaskAction
     void publish() {
+
+        def cutOfficialRelease = project.hasProperty('cut')
+
         project.configure(project) {
             def plugins = project.getPlugins()
-            if (plugins.hasPlugin('android') || plugins.hasPlugin('android-library')) {
-                def versionFile = new File(project.rootDir, 'version.properties')
-                if (versionFile.exists()) {
-                    println "versioning file exists"
-                } else {
-                    println "versioning file doesn't exist, creating as new"
-                    versionFile.createNewFile()
-                    initializeVersionFile(versionFile)
-                }
 
-                Gradle gradle = project.getGradle()
-                ReleaseType releaseType = determineReleaseTypeFromIdString(getBuildIdentifierString(gradle))
-                incrementProperty(versionFile, releaseType)
+            if (plugins.hasPlugin('android') || plugins.hasPlugin('android-library')) {
+
+                def versionFile = getOrInitializeVersioningFile(project.rootDir, FILE_NAME)
+
+                String currentBuildIdentifier = getBuildIdentifierString(project.getGradle())
+
+                ReleaseType releaseType = determineReleaseTypeFromIdString(currentBuildIdentifier)
+
+                if (releaseType.equals(ReleaseType.VERSION_BUILD)) {
+                    incrementProperty(versionFile, releaseType)
+                } else if (!releaseType.equals(ReleaseType.VERSION_BUILD) && cutOfficialRelease) {
+                    incrementProperty(versionFile, releaseType)
+                }
 
                 if (plugins.hasPlugin('android')) {
                     println("This has been identified as a non-library project, and will versioned accordingly...")
+                    println("Possible build variants available::")
                     android.applicationVariants.all { variant ->
-                        variant.outputs.all {
-                            setVersionCodeOverride(buildVersionCode(versionFile, releaseType))
-                            setVersionNameOverride("MARKIANTORNO")
+                        variant.outputs.each { output ->
+                            def taskName = "$output.name"
+                            println(">> " + taskName)
                         }
+
+//                        variant.outputs.all {
+//                            setVersionCodeOverride(buildVersionCode(versionFile, releaseType))
+//                            setVersionNameOverride("MARKIANTORNO")
+//                        }
                     }
                 } else if (plugins.hasPlugin('android-library')) {
                     println("This has been identified as a library project, and will versioned accordingly...")
@@ -46,6 +58,8 @@ class PublishTask extends DefaultTask {
                         }
                     }
                 }
+            } else {
+                println("Not an Android project or library...aborting versioning.")
             }
         }
     }
@@ -82,6 +96,26 @@ class PublishTask extends DefaultTask {
 ///////////////////////////////
 
     /**
+     * Checks to see if a versioning file exists already, if it does, this method returns the reference to that
+     * {@link File}, otherwise, it will create a new file, and initialize it with 0.0.0.0
+     *
+     * @param root_dir The root directory of the project, as {@link File}
+     * @param filename The name of the versioning file {@link String}
+     * @return {@link File}
+     */
+    File getOrInitializeVersioningFile(File root_dir, String filename) {
+        File versionFile = new File(project.rootDir, 'version.properties')
+        if (versionFile.exists()) {
+            println "versioning file exists"
+        } else {
+            println "versioning file doesn't exist, creating as new"
+            versionFile.createNewFile()
+            initializeVersionFile(versionFile)
+        }
+        return versionFile
+    }
+
+    /**
      * Returns the {@link Gradle}.getStartParameter().getTaskRequests()
      * @param gradleInstance {@link Gradle}
      * @return {@link String} build task identifier
@@ -89,6 +123,7 @@ class PublishTask extends DefaultTask {
     String getBuildIdentifierString(@Nonnull Gradle gradleInstance) {
         String taskReqStr = gradleInstance.getStartParameter().getTaskRequests().toString()
         println("Task identifier for this build task -> " + taskReqStr)
+        return taskReqStr
     }
 
     /**
@@ -130,7 +165,7 @@ class PublishTask extends DefaultTask {
      */
     void incrementProperty(@Nonnull File propertiesFile, @Nonnull ReleaseType type) {
         Properties propertiesValues = loadVersionProperties(propertiesFile)
-
+        println("Incrementing build property based on release type >> " + type as String)
         for (ReleaseType releaseType : ReleaseType.values().reverse()) {
             String property = propertiesValues.getProperty(releaseType as String)
             if (releaseType.equals(type)) {
@@ -144,6 +179,7 @@ class PublishTask extends DefaultTask {
                 setProperty(propertiesFile, releaseType as String, 0)
             }
         }
+        println("Resulting versioning file >>")
         printCurrentProperties(loadVersionProperties(propertiesFile))
     }
 

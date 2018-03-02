@@ -3,7 +3,7 @@ apply plugin: 'java-gradle-plugin'
 apply plugin: 'maven-publish'
 
 group = 'com.iantorno.xylographer'
-version = '1.0.0-SNAP'
+version = '1.0.0'
 
 repositories {
     mavenCentral()
