@@ -13,16 +13,19 @@ import java.util.regex.Matcher
 class PublishTask extends DefaultTask {
 
     static final String FILE_NAME = 'version.properties'
+    static final String COMMAND_LINE_ARG = 'cut'
+    static final String ANDROID_APP = 'android'
+    static final String ANDROID_LIB = 'android-library'
 
     @TaskAction
     void publish() {
 
-        def cutOfficialRelease = project.hasProperty('cut')
+        def cutOfficialRelease = project.hasProperty(COMMAND_LINE_ARG)
 
         project.configure(project) {
             def plugins = project.getPlugins()
 
-            if (plugins.hasPlugin('android') || plugins.hasPlugin('android-library')) {
+            if (plugins.hasPlugin(ANDROID_APP) || plugins.hasPlugin(ANDROID_LIB)) {
 
                 def versionFile = getOrInitializeVersioningFile(project.rootDir, FILE_NAME)
 
@@ -31,33 +34,51 @@ class PublishTask extends DefaultTask {
                 ReleaseType releaseType = determineReleaseTypeFromIdString(currentBuildIdentifier)
 
                 if (releaseType.equals(ReleaseType.VERSION_BUILD)) {
+                    /*
+                     * We always increment build number for test builds to distinguish versions during development
+                     */
                     incrementProperty(versionFile, releaseType)
                 } else if (!releaseType.equals(ReleaseType.VERSION_BUILD) && cutOfficialRelease) {
+                    /*
+                     * For MAJOR/MINOR/REVISION releases, we only want to increment once, when we ship.
+                     * We use the -Pcut arg for this
+                     */
                     incrementProperty(versionFile, releaseType)
                 }
 
-                if (plugins.hasPlugin('android')) {
+                String versionName = buildVersionName(versionFile, releaseType)
+                int versionNumber = buildVersionNumber(versionFile)
+
+                if (plugins.hasPlugin(ANDROID_APP)) {
                     println("This has been identified as a non-library project, and will versioned accordingly...")
                     println("Possible build variants available::")
                     android.applicationVariants.all { variant ->
+
                         variant.outputs.each { output ->
                             def taskName = "$output.name"
                             println(">> " + taskName)
                         }
 
-//                        variant.outputs.all {
-//                            setVersionCodeOverride(buildVersionCode(versionFile, releaseType))
-//                            setVersionNameOverride("MARKIANTORNO")
-//                        }
+                        variant.outputs.all {
+                            setVersionCodeOverride(versionNumber)
+                            setVersionNameOverride(versionName)
+                        }
+
                     }
-                } else if (plugins.hasPlugin('android-library')) {
+                } else if (plugins.hasPlugin(ANDROID_LIB)) {
                     println("This has been identified as a library project, and will versioned accordingly...")
                     android.libraryVariants.all { variant ->
                         variant.outputs.all {
-                            //TODO
+                            
+                            variant.outputs.all {
+                                setVersionCodeOverride(versionNumber)
+                                setVersionNameOverride(versionName)
+                            }
                         }
                     }
                 }
+
+
             } else {
                 println("Not an Android project or library...aborting versioning.")
             }
@@ -242,25 +263,31 @@ class PublishTask extends DefaultTask {
      * And the final release is without any suffix.
      * @return
      */
-    int buildVersionCode(@Nonnull File propertiesFile, @Nonnull ReleaseType type) {
+    String buildVersionName(@Nonnull File propertiesFile, @Nonnull ReleaseType type) {
         def major = getProperty(propertiesFile, ReleaseType.VERSION_MAJOR as String)
         def minor = getProperty(propertiesFile, ReleaseType.VERSION_MINOR as String)
         def revision = getProperty(propertiesFile, ReleaseType.VERSION_REVISION as String)
         def build = getProperty(propertiesFile, ReleaseType.VERSION_BUILD as String)
 
-        int versionCode = ((major * 10000000) + (minor * 100000) + (revision * 1000) + (build * 1))
-        println("Version code -> " + versionCode)
-        return versionCode
+        String versionName = major + "." + minor + "." + revision
+        if (type.equals(ReleaseType.VERSION_BUILD)) {
+            versionName += ("." + build)
+        }
+        println("Generated version name >> " + versionName)
+
+        return versionName
     }
 
-    int buildVersionNumber(@Nonnull File propertiesFile, @Nonnull ReleaseType type) {
+    int buildVersionNumber(@Nonnull File propertiesFile) {//, @Nonnull ReleaseType type) {
         def major = getProperty(propertiesFile, ReleaseType.VERSION_MAJOR as String)
         def minor = getProperty(propertiesFile, ReleaseType.VERSION_MINOR as String)
         def revision = getProperty(propertiesFile, ReleaseType.VERSION_REVISION as String)
         def build = getProperty(propertiesFile, ReleaseType.VERSION_BUILD as String)
 
+        int versionNumber = ((major * 10000000) + (minor * 100000) + (revision * 1000) + (build * 1))
+        println("Generated version number >> " + versionNumber)
 
-        return ((major * 10000000) + (minor * 100000) + (revision * 1000) + (build * 1))
+        return versionNumber
     }
 }
 
