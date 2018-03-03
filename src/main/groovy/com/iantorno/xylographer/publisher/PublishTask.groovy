@@ -59,24 +59,17 @@ class PublishTask extends DefaultTask {
                 int versionNumber = buildVersionNumber(versionFile)
 
                 if (plugins.hasPlugin(ANDROID_APP)) {
+                    String branchSuffix = getCurrentBranchSuffix(info.branch)
                     println("This has been identified as a non-library project, and will versioned accordingly...")
-                    println("Possible build variants available::")
+
                     android.applicationVariants.all { variant ->
-
-                        variant.outputs.each { output ->
-                            def taskName = "$output.name"
-                            println(">> " + taskName)
-                        }
-
                         if (releaseType.equals(ReleaseType.VERSION_BUILD)) {
-                            versionName = (versionName + getCurrentBranchSuffix(info.branch))
+                            versionName = (versionName + "-" +branchSuffix)
                         }
-
                         variant.outputs.all {
                             setVersionCodeOverride(versionNumber)
                             setVersionNameOverride(versionName)
                         }
-
                     }
                 } else if (plugins.hasPlugin(ANDROID_LIB)) {
                     println("This has been identified as a library project, and will versioned accordingly...")
@@ -85,16 +78,12 @@ class PublishTask extends DefaultTask {
                         if (releaseType.equals(ReleaseType.VERSION_BUILD)) {
                             versionName = (versionName + SNAPSHOT_SUFFIX)
                         }
-
                         variant.outputs.all {
                             setVersionCodeOverride(versionNumber)
                             setVersionNameOverride(versionName)
                         }
-
                     }
                 }
-
-
             } else {
                 println("Not an Android project or library...aborting versioning.")
             }
@@ -323,7 +312,6 @@ class PublishTask extends DefaultTask {
         if (type.equals(ReleaseType.VERSION_BUILD)) {
             versionName += ("." + build)
         }
-        println("\n\n")
         println("Generated version name >> " + versionName)
 
         return versionName
@@ -336,7 +324,6 @@ class PublishTask extends DefaultTask {
         def build = getProperty(propertiesFile, ReleaseType.VERSION_BUILD as String)
 
         int versionNumber = ((major * 10000000) + (minor * 100000) + (revision * 1000) + (build * 1))
-        println("\n\n")
         println("Generated version number >> " + versionNumber)
 
         return versionNumber
