@@ -7,6 +7,7 @@ version = '1.0.0'
 
 repositories {
     mavenCentral()
+    jcenter()
 }
 
 gradlePlugin {
@@ -21,17 +22,18 @@ gradlePlugin {
 dependencies {
     compile localGroovy()
     compile gradleApi()
+    compile 'org.ajoberstar:grgit:2.1.1'
 
     testCompile group: 'junit', name: 'junit', version: '4.12'
 }
 
 publishing {
     publications {
-        pluginPublication (MavenPublication) {
-            from            components.java
-            groupId         project.group
-            artifactId      "Xylographer"
-            version         project.version
+        pluginPublication(MavenPublication) {
+            from components.java
+            groupId project.group
+            artifactId "Xylographer"
+            version project.version
         }
     }
 }

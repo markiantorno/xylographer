@@ -1,5 +1,9 @@
 package com.iantorno.xylographer.publisher
 
+import com.iantorno.xylographer.model.GitInfo
+import com.iantorno.xylographer.model.ReleaseType
+import org.ajoberstar.grgit.Commit
+import org.ajoberstar.grgit.Grgit
 import org.gradle.api.DefaultTask
 import org.gradle.api.invocation.Gradle
 import org.gradle.api.tasks.TaskAction
@@ -16,6 +20,9 @@ class PublishTask extends DefaultTask {
     static final String COMMAND_LINE_ARG = 'cut'
     static final String ANDROID_APP = 'android'
     static final String ANDROID_LIB = 'android-library'
+    static final String SNAPSHOT_SUFFIX = "-SNAPSHOT"
+    static final String DEFAULT_DATE_FORMAT = "yyyy-MM-dd HH:mm:ss Z"
+    static final String BAD_BRANCH_FORMAT = "FORMAT_ERR"
 
     @TaskAction
     void publish() {
@@ -32,6 +39,8 @@ class PublishTask extends DefaultTask {
                 String currentBuildIdentifier = getBuildIdentifierString(project.getGradle())
 
                 ReleaseType releaseType = determineReleaseTypeFromIdString(currentBuildIdentifier)
+
+                GitInfo info = readGitInfo()
 
                 if (releaseType.equals(ReleaseType.VERSION_BUILD)) {
                     /*
@@ -59,6 +68,10 @@ class PublishTask extends DefaultTask {
                             println(">> " + taskName)
                         }
 
+                        if (releaseType.equals(ReleaseType.VERSION_BUILD)) {
+                            versionName = (versionName + getCurrentBranchSuffix(info.branch))
+                        }
+
                         variant.outputs.all {
                             setVersionCodeOverride(versionNumber)
                             setVersionNameOverride(versionName)
@@ -68,13 +81,16 @@ class PublishTask extends DefaultTask {
                 } else if (plugins.hasPlugin(ANDROID_LIB)) {
                     println("This has been identified as a library project, and will versioned accordingly...")
                     android.libraryVariants.all { variant ->
-                        variant.outputs.all {
-                            
-                            variant.outputs.all {
-                                setVersionCodeOverride(versionNumber)
-                                setVersionNameOverride(versionName)
-                            }
+
+                        if (releaseType.equals(ReleaseType.VERSION_BUILD)) {
+                            versionName = (versionName + SNAPSHOT_SUFFIX)
                         }
+
+                        variant.outputs.all {
+                            setVersionCodeOverride(versionNumber)
+                            setVersionNameOverride(versionName)
+                        }
+
                     }
                 }
 
@@ -85,36 +101,70 @@ class PublishTask extends DefaultTask {
         }
     }
 
-    static def getCurrentBranchCodeName() {
-        def currentBranchName = 'git rev-parse --abbrev-ref HEAD'.execute().text.trim()
-        String branchTicketCode = "";
-
-        /*
-         * REGEX For branch naming:
-         *
-         * We want to match our JIRA ticketing pattern, ie: 'BANTA-111', BA-29, ICC-2034'...
-         *
-         * This regex will parse the string for any instance of a 2-5 capital letter identifier, paired with a number
-         * from 1-99999, separated by a '-' character. This is unique for my job's purposes, but could be reformatted to
-         * suit different needs.
-         *
-         *  ^ asserts position at start of the string
-         *  Match a single character present in the list below [A-Z]{2,5}
-         *  {2,5} Quantifier — Matches between 2 and 5 times, as many times as possible, giving back as needed (greedy)
-         *  A-Z a single character in the range between A (index 65) and Z (index 90) (case sensitive)
-         *  \- matches the character - literally (case sensitive)
-         *  \d{1,5} matches a digit (equal to [0-9])
-         *  {1,5} Quantifier — Matches between 1 and 5 times, as many times as possible, giving back as needed (greedy)
-         *  $ asserts position at the end of the string, or before the line terminator right at the end of the string (if any)
-         */
-        Matcher matcher = currentBranchName =~ /^[A-Z]{2,5}\-\d{1,5}$/
+    /**
+     * REGEX For branch naming:
+     *
+     * We want to match our JIRA ticketing pattern, ie: 'BANTA-111', BA-29, ICC-2034'...
+     *
+     * This regex will parse the string for any instance of a 2-5 capital letter identifier, paired with a number
+     * from 1-99999, separated by a '-' character. This is unique for my job's purposes, but could be reformatted to
+     * suit different needs.
+     *
+     *  ^ asserts position at start of the string
+     *  Match a single character present in the list below [A-Z]{2,5}
+     *  {2,5} Quantifier — Matches between 2 and 5 times, as many times as possible, giving back as needed (greedy)
+     *  A-Z a single character in the range between A (index 65) and Z (index 90) (case sensitive)
+     *  \- matches the character - literally (case sensitive)
+     *  \d{1,5} matches a digit (equal to [0-9])
+     *  {1,5} Quantifier — Matches between 1 and 5 times, as many times as possible, giving back as needed (greedy)
+     * @param branchName {@link String} Branch name
+     * @return {@link String} The shortened branch name to use in the version name.
+     */
+    static String getCurrentBranchSuffix(String branchName) {
+        String parsedBranchId = BAD_BRANCH_FORMAT
+        Matcher matcher = branchName =~ /^[A-Z]{2,5}\-\d{1,5}/
         if (matcher.size() > 0) {
-            branchTicketCode = matcher[0][1]
+            parsedBranchId = matcher[0]
         }
-        return branchTicketCode
+        println("Based on the passed in branch name ${branchName}, the resulting version suffix is ${parsedBranchId}")
+        return parsedBranchId
     }
 
-///////////////////////////////
+    /**
+     * Generates a {@link GitInfo} object from the current git info.
+     * @return {@link GitInfo}
+     */
+    GitInfo readGitInfo() {
+        def missing = false
+        def valid = true
+        def branch
+        def commit
+        def committerDate
+        try {
+            println("SEARCHING FOR GIT DATA IN >> " + project.projectDir)
+            Grgit grgit = Grgit.open(currentDir: project.projectDir)
+            branch = grgit.branch.current().name
+            Commit head = grgit.head()
+            commit = head.abbreviatedId
+            committerDate = head.date.format(DEFAULT_DATE_FORMAT)
+        } catch (ignored) {
+            println("Error >> " + ignored)
+            missing = true
+            branch = "unknown"
+            commit = "unknown"
+            committerDate = "unknown"
+        }
+
+        println("BRANCH NAME >> " + branch)
+        println("COMMIT ID >> " + commit)
+        println("COMMIT DATE >> " + committerDate)
+
+        new GitInfo(missing: missing,
+                valid: valid,
+                branch: branch,
+                commit: commit,
+                committerDate: committerDate)
+    }
 
     /**
      * Checks to see if a versioning file exists already, if it does, this method returns the reference to that
@@ -152,7 +202,7 @@ class PublishTask extends DefaultTask {
      * @param idString The identifier from {@link Gradle}.getStartParameter().getTaskRequests()
      * @return The associated {@link ReleaseType}, or {@link ReleaseType#VERSION_BUILD} if no match is found
      */
-    ReleaseType determineReleaseTypeFromIdString(String idString) {
+    static ReleaseType determineReleaseTypeFromIdString(String idString) {
         ReleaseType returnType = ReleaseType.VERSION_BUILD
         if (idString != null) {
             if (idString.toLowerCase().contains(ReleaseType.VERSION_MAJOR.getIdentifyingLabel().toLowerCase())) {
@@ -273,6 +323,7 @@ class PublishTask extends DefaultTask {
         if (type.equals(ReleaseType.VERSION_BUILD)) {
             versionName += ("." + build)
         }
+        println("\n\n")
         println("Generated version name >> " + versionName)
 
         return versionName
@@ -285,6 +336,7 @@ class PublishTask extends DefaultTask {
         def build = getProperty(propertiesFile, ReleaseType.VERSION_BUILD as String)
 
         int versionNumber = ((major * 10000000) + (minor * 100000) + (revision * 1000) + (build * 1))
+        println("\n\n")
         println("Generated version number >> " + versionNumber)
 
         return versionNumber

@@ -22,39 +22,5 @@ class PublishModule {
         * https://discuss.gradle.org/t/how-to-create-custom-gradle-task-type-and-not-have-to-specify-full-path-to-type-in-build-gradle/6059/4
         */
         project.ext.PublishTask = PublishTask
-
-        /*
-        * A task that uses an extension for configuration.
-        * Reference:
-        * https://docs.gradle.org/3.5/userguide/custom_plugins.html#sec:getting_input_from_the_build
-        * Example 41.2
-        */
-        project.task('debugPublish') {
-            group = "Publish"
-            description = "Greets the world. Greeting configured in the 'greeting' extension."
-
-            doLast {
-                String greeting = project.extensions.greeting.alternativeGreeting ?: "Hello"
-                pritnln "debugPublish called"
-                println "$greeting, world!"
-            }
-        }
-
-        /*
-        * A task using a project property for configuration.
-        * Reference:
-        * https://docs.gradle.org/3.5/userguide/build_environment.html#sec:gradle_properties_and_system_properties
-        * Example 12.1
-        */
-        project.task('releasePublish') {
-            group = "Publish"
-            description = "Greets the user. Target configured through properties."
-
-            doLast {
-                String target = project.findProperty("target") ?: "user"
-                println "releasePublish called"
-                println "Hello, $target!"
-            }
-        }
     }
 }

@@ -1,4 +1,4 @@
-package com.iantorno.xylographer.publisher
+package com.iantorno.xylographer.model
 
 enum ReleaseType {
     VERSION_MAJOR("major"),
