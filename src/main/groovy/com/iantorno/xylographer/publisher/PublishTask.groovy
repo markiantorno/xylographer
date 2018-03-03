@@ -64,7 +64,7 @@ class PublishTask extends DefaultTask {
 
                     android.applicationVariants.all { variant ->
                         if (releaseType.equals(ReleaseType.VERSION_BUILD)) {
-                            versionName = (versionName + "-" +branchSuffix)
+                            versionName = (versionName + "-" + branchSuffix)
                         }
                         variant.outputs.all {
                             setVersionCodeOverride(versionNumber)
@@ -100,12 +100,11 @@ class PublishTask extends DefaultTask {
      * suit different needs.
      *
      *  ^ asserts position at start of the string
-     *  Match a single character present in the list below [A-Z]{2,5}
-     *  {2,5} Quantifier — Matches between 2 and 5 times, as many times as possible, giving back as needed (greedy)
+     *  Match a single character present in the list below [A-Z]{2,5}*{2,5} Quantifier — Matches between 2 and 5 times, as many times as possible, giving back as needed (greedy)
      *  A-Z a single character in the range between A (index 65) and Z (index 90) (case sensitive)
      *  \- matches the character - literally (case sensitive)
      *  \d{1,5} matches a digit (equal to [0-9])
-     *  {1,5} Quantifier — Matches between 1 and 5 times, as many times as possible, giving back as needed (greedy)
+     *{1,5} Quantifier — Matches between 1 and 5 times, as many times as possible, giving back as needed (greedy)
      * @param branchName {@link String} Branch name
      * @return {@link String} The shortened branch name to use in the version name.
      */
@@ -164,7 +163,7 @@ class PublishTask extends DefaultTask {
      * @return {@link File}
      */
     File getOrInitializeVersioningFile(File root_dir, String filename) {
-        File versionFile = new File(project.rootDir, 'version.properties')
+        File versionFile = new File(root_dir, 'version.properties')
         if (versionFile.exists()) {
             println "versioning file exists"
         } else {
@@ -180,7 +179,7 @@ class PublishTask extends DefaultTask {
      * @param gradleInstance {@link Gradle}
      * @return {@link String} build task identifier
      */
-    String getBuildIdentifierString(@Nonnull Gradle gradleInstance) {
+    static String getBuildIdentifierString(@Nonnull Gradle gradleInstance) {
         String taskReqStr = gradleInstance.getStartParameter().getTaskRequests().toString()
         println("Task identifier for this build task -> " + taskReqStr)
         return taskReqStr
@@ -210,9 +209,9 @@ class PublishTask extends DefaultTask {
      * Initializes version file with all 0 values for each release type.
      * @param file {@link File} to store properties in
      */
-    void initializeVersionFile(@Nonnull File file) {
+    static void initializeVersionFile(@Nonnull File file) {
         for (ReleaseType type : ReleaseType.values()) {
-            setProperty(file, type as String, 0)
+            setProperty(file, type, 0)
         }
     }
 
@@ -223,24 +222,34 @@ class PublishTask extends DefaultTask {
      * @param propertiesFile {@link File} containing properties data
      * @param type {@link ReleaseType}
      */
-    void incrementProperty(@Nonnull File propertiesFile, @Nonnull ReleaseType type) {
+    static void incrementProperty(@Nonnull File propertiesFile, @Nonnull ReleaseType type) {
         Properties propertiesValues = loadVersionProperties(propertiesFile)
         println("Incrementing build property based on release type >> " + type as String)
         for (ReleaseType releaseType : ReleaseType.values().reverse()) {
             String property = propertiesValues.getProperty(releaseType as String)
             if (releaseType.equals(type)) {
                 if (property == null) {
-                    setProperty(propertiesFile, releaseType as String, 1)
+                    setProperty(propertiesFile, releaseType, 1)
                 } else {
-                    setProperty(propertiesFile, releaseType as String, property.toInteger() + 1)
+                    setProperty(propertiesFile, releaseType, property.toInteger() + 1)
                 }
                 break
             } else {
-                setProperty(propertiesFile, releaseType as String, 0)
+                setProperty(propertiesFile, releaseType, 0)
             }
         }
         println("Resulting versioning file >>")
         printCurrentProperties(loadVersionProperties(propertiesFile))
+    }
+
+    /**
+     * To set a build property, the value must be within the range of 0 -> {@link ReleaseType#mMaxValue}
+     * @param type {@link ReleaseType}
+     * @param value {@link Integer}
+     * @return {@link Boolean#TRUE} if the passed in value is within the accepted range for the given {@link ReleaseType}
+     */
+    static boolean validPropertyValue(@Nonnull ReleaseType type, int value) {
+        return ((value <= type.getMaxValue()) && (value >= 0))
     }
 
     /**
@@ -250,10 +259,16 @@ class PublishTask extends DefaultTask {
      * @param key {@link String} key to associate with value
      * @param value {@link Integer} value to store
      */
-    void setProperty(@Nonnull File propertiesFile, @Nonnull String key, int value) {
-        Properties propertiesValues = loadVersionProperties(propertiesFile)
-        propertiesValues.setProperty(key, value.toString())
-        propertiesValues.store(propertiesFile.newWriter(), null)
+    static void setProperty(@Nonnull File propertiesFile, @Nonnull ReleaseType type, int value) {
+        if (validPropertyValue(type, value)) {
+            Properties propertiesValues = loadVersionProperties(propertiesFile)
+            propertiesValues.setProperty(type as String, value.toString())
+            propertiesValues.store(propertiesFile.newWriter(), null)
+        } else {
+            throw new IllegalArgumentException("Property ${value as String} for ReleaseType ${type as String} out of " +
+                    "accepted range 0 -> ${type.getMaxValue() as String}")
+        }
+
     }
 
     /**
@@ -263,9 +278,9 @@ class PublishTask extends DefaultTask {
      * @param key {@link String} key to associate with value
      * @param value {@link Integer} value to store
      */
-    int getProperty(@Nonnull File propertiesFile, @Nonnull String key) {
+    static int getProperty(@Nonnull File propertiesFile, @Nonnull ReleaseType type) {
         Properties propertiesValues = loadVersionProperties(propertiesFile)
-        def property = propertiesValues.getProperty(key, "0")
+        def property = propertiesValues.getProperty(type as String, "0")
         return property.toInteger()
     }
 
@@ -274,7 +289,7 @@ class PublishTask extends DefaultTask {
      * file exists.
      * @return {@link Properties} read from file.
      */
-    Properties loadVersionProperties(File file) {
+    static Properties loadVersionProperties(File file) {
         if (!file.canRead()) {
             throw new FileNotFoundException("Could not read version.properties!")
         }
@@ -287,9 +302,9 @@ class PublishTask extends DefaultTask {
      * Dumps the current propertis to the console.
      * @param properties {@link Properties} to display in console
      */
-    void printCurrentProperties(Properties properties) {
+    static void printCurrentProperties(Properties properties) {
         properties.each { prop, val ->
-            println(prop + ": " + val)
+            println("\t" + prop + ": " + val)
         }
     }
 
@@ -302,11 +317,11 @@ class PublishTask extends DefaultTask {
      * And the final release is without any suffix.
      * @return
      */
-    String buildVersionName(@Nonnull File propertiesFile, @Nonnull ReleaseType type) {
-        def major = getProperty(propertiesFile, ReleaseType.VERSION_MAJOR as String)
-        def minor = getProperty(propertiesFile, ReleaseType.VERSION_MINOR as String)
-        def revision = getProperty(propertiesFile, ReleaseType.VERSION_REVISION as String)
-        def build = getProperty(propertiesFile, ReleaseType.VERSION_BUILD as String)
+    static String buildVersionName(@Nonnull File propertiesFile, @Nonnull ReleaseType type) {
+        def major = getProperty(propertiesFile, ReleaseType.VERSION_MAJOR)
+        def minor = getProperty(propertiesFile, ReleaseType.VERSION_MINOR)
+        def revision = getProperty(propertiesFile, ReleaseType.VERSION_REVISION)
+        def build = getProperty(propertiesFile, ReleaseType.VERSION_BUILD)
 
         String versionName = major + "." + minor + "." + revision
         if (type.equals(ReleaseType.VERSION_BUILD)) {
@@ -317,13 +332,17 @@ class PublishTask extends DefaultTask {
         return versionName
     }
 
-    int buildVersionNumber(@Nonnull File propertiesFile) {//, @Nonnull ReleaseType type) {
-        def major = getProperty(propertiesFile, ReleaseType.VERSION_MAJOR as String)
-        def minor = getProperty(propertiesFile, ReleaseType.VERSION_MINOR as String)
-        def revision = getProperty(propertiesFile, ReleaseType.VERSION_REVISION as String)
-        def build = getProperty(propertiesFile, ReleaseType.VERSION_BUILD as String)
+    static int buildVersionNumber(@Nonnull File propertiesFile) {
+        def major = getProperty(propertiesFile, ReleaseType.VERSION_MAJOR)
+        def minor = getProperty(propertiesFile, ReleaseType.VERSION_MINOR)
+        def revision = getProperty(propertiesFile, ReleaseType.VERSION_REVISION)
+        def build = getProperty(propertiesFile, ReleaseType.VERSION_BUILD)
 
-        int versionNumber = ((major * 10000000) + (minor * 100000) + (revision * 1000) + (build * 1))
+        int versionNumber = ((major * ((ReleaseType.VERSION_MINOR.getMaxValue() + 1) * (ReleaseType.VERSION_REVISION.getMaxValue() + 1) * (ReleaseType.VERSION_BUILD.getMaxValue() + 1)))
+                + (minor * ((ReleaseType.VERSION_REVISION.getMaxValue() + 1) * (ReleaseType.VERSION_BUILD.getMaxValue() + 1)))
+                + (revision * (ReleaseType.VERSION_BUILD.getMaxValue() + 1))
+                + (build * 1))
+
         println("Generated version number >> " + versionNumber)
 
         return versionNumber

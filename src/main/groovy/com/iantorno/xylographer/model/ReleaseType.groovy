@@ -1,18 +1,24 @@
 package com.iantorno.xylographer.model
 
 enum ReleaseType {
-    VERSION_MAJOR("major"),
-    VERSION_MINOR("minor"),
-    VERSION_REVISION("revision"),
-    VERSION_BUILD("build")
+    VERSION_MAJOR("major", 99),
+    VERSION_MINOR("minor", 99),
+    VERSION_REVISION("revision", 99),
+    VERSION_BUILD("build", 999)
 
     final String mIdLabel
+    final int mMaxValue
 
-    ReleaseType(String identifyingLabel) {
+    ReleaseType(String identifyingLabel, int max) {
         mIdLabel = identifyingLabel
+        mMaxValue = max
     }
 
     String getIdentifyingLabel() {
         return mIdLabel
+    }
+
+    int getMaxValue() {
+        return mMaxValue
     }
 }

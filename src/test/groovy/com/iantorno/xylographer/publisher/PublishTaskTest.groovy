@@ -3,9 +3,6 @@ package com.iantorno.xylographer.publisher
 import com.iantorno.xylographer.model.ReleaseType
 import org.junit.Assert
 
-/**
- * Created by mark on 2018-03-02.
- */
 class PublishTaskTest extends GroovyTestCase {
 
     final static String BAD_FORMAT_BRANCH_NAME = "Feature444-I_do_not_listen_to_Mark"
@@ -28,12 +25,6 @@ class PublishTaskTest extends GroovyTestCase {
         Assert.assertEquals(PARSED_BRANCH_ID_THREE, testThree)
     }
 
-    void testGetOrInitializeVersioningFile() {
-    }
-
-    void testGetBuildIdentifierString() {
-    }
-
     final static String NULL_ID_STRING = null
     final static String NO_REC_ID_STRING = "Where is my mind"
     final static String MAJOR_ID_STRING = "buildMajorRelease"
@@ -53,27 +44,171 @@ class PublishTaskTest extends GroovyTestCase {
         Assert.assertEquals(ReleaseType.VERSION_REVISION, revisionInput)
     }
 
+    final static String DEFAULT_GET_PROP_VALUE = "-1"
+
     void testInitializeVersionFile() {
+        def versionFile = makeTestVersionInfoFile()
+        PublishTask.initializeVersionFile(versionFile)
+        def versionProperties = PublishTask.loadVersionProperties(versionFile)
+        Assert.assertEquals(0, versionProperties.getProperty(ReleaseType.VERSION_MAJOR as String, DEFAULT_GET_PROP_VALUE).toInteger())
+        Assert.assertEquals(0, versionProperties.getProperty(ReleaseType.VERSION_MINOR as String, DEFAULT_GET_PROP_VALUE).toInteger())
+        Assert.assertEquals(0, versionProperties.getProperty(ReleaseType.VERSION_REVISION as String, DEFAULT_GET_PROP_VALUE).toInteger())
+        Assert.assertEquals(0, versionProperties.getProperty(ReleaseType.VERSION_BUILD as String, DEFAULT_GET_PROP_VALUE).toInteger())
+    }
+
+    static File makeTestVersionInfoFile() {
+        File versionFile = File.createTempFile( "version", ".properties");
+        versionFile.deleteOnExit()
+        return versionFile
     }
 
     void testIncrementProperty() {
+        def versionFile = makeTestVersionInfoFile()
+        PublishTask.initializeVersionFile(versionFile)
+
+        def versionProperties = PublishTask.loadVersionProperties(versionFile)
+        Assert.assertEquals(0, versionProperties.getProperty(ReleaseType.VERSION_MAJOR as String, DEFAULT_GET_PROP_VALUE).toInteger())
+        Assert.assertEquals(0, versionProperties.getProperty(ReleaseType.VERSION_MINOR as String, DEFAULT_GET_PROP_VALUE).toInteger())
+        Assert.assertEquals(0, versionProperties.getProperty(ReleaseType.VERSION_REVISION as String, DEFAULT_GET_PROP_VALUE).toInteger())
+        Assert.assertEquals(0, versionProperties.getProperty(ReleaseType.VERSION_BUILD as String, DEFAULT_GET_PROP_VALUE).toInteger())
+
+        //Normal build
+        PublishTask.incrementProperty(versionFile, ReleaseType.VERSION_BUILD)
+        versionProperties = PublishTask.loadVersionProperties(versionFile)
+        Assert.assertEquals(0, versionProperties.getProperty(ReleaseType.VERSION_MAJOR as String, DEFAULT_GET_PROP_VALUE).toInteger())
+        Assert.assertEquals(0, versionProperties.getProperty(ReleaseType.VERSION_MINOR as String, DEFAULT_GET_PROP_VALUE).toInteger())
+        Assert.assertEquals(0, versionProperties.getProperty(ReleaseType.VERSION_REVISION as String, DEFAULT_GET_PROP_VALUE).toInteger())
+        Assert.assertEquals(1, versionProperties.getProperty(ReleaseType.VERSION_BUILD as String, DEFAULT_GET_PROP_VALUE).toInteger())
+
+        //Normal build
+        PublishTask.incrementProperty(versionFile, ReleaseType.VERSION_BUILD)
+        versionProperties = PublishTask.loadVersionProperties(versionFile)
+        Assert.assertEquals(0, versionProperties.getProperty(ReleaseType.VERSION_MAJOR as String, DEFAULT_GET_PROP_VALUE).toInteger())
+        Assert.assertEquals(0, versionProperties.getProperty(ReleaseType.VERSION_MINOR as String, DEFAULT_GET_PROP_VALUE).toInteger())
+        Assert.assertEquals(0, versionProperties.getProperty(ReleaseType.VERSION_REVISION as String, DEFAULT_GET_PROP_VALUE).toInteger())
+        Assert.assertEquals(2, versionProperties.getProperty(ReleaseType.VERSION_BUILD as String, DEFAULT_GET_PROP_VALUE).toInteger())
+
+        //Revision build
+        PublishTask.incrementProperty(versionFile, ReleaseType.VERSION_REVISION)
+        versionProperties = PublishTask.loadVersionProperties(versionFile)
+        Assert.assertEquals(0, versionProperties.getProperty(ReleaseType.VERSION_MAJOR as String, DEFAULT_GET_PROP_VALUE).toInteger())
+        Assert.assertEquals(0, versionProperties.getProperty(ReleaseType.VERSION_MINOR as String, DEFAULT_GET_PROP_VALUE).toInteger())
+        Assert.assertEquals(1, versionProperties.getProperty(ReleaseType.VERSION_REVISION as String, DEFAULT_GET_PROP_VALUE).toInteger())
+        Assert.assertEquals(0, versionProperties.getProperty(ReleaseType.VERSION_BUILD as String, DEFAULT_GET_PROP_VALUE).toInteger())
+
+        //Minor build
+        PublishTask.incrementProperty(versionFile, ReleaseType.VERSION_MINOR)
+        versionProperties = PublishTask.loadVersionProperties(versionFile)
+        Assert.assertEquals(0, versionProperties.getProperty(ReleaseType.VERSION_MAJOR as String, DEFAULT_GET_PROP_VALUE).toInteger())
+        Assert.assertEquals(1, versionProperties.getProperty(ReleaseType.VERSION_MINOR as String, DEFAULT_GET_PROP_VALUE).toInteger())
+        Assert.assertEquals(0, versionProperties.getProperty(ReleaseType.VERSION_REVISION as String, DEFAULT_GET_PROP_VALUE).toInteger())
+        Assert.assertEquals(0, versionProperties.getProperty(ReleaseType.VERSION_BUILD as String, DEFAULT_GET_PROP_VALUE).toInteger())
+
+        //Major build
+        PublishTask.incrementProperty(versionFile, ReleaseType.VERSION_MAJOR)
+        versionProperties = PublishTask.loadVersionProperties(versionFile)
+        Assert.assertEquals(1, versionProperties.getProperty(ReleaseType.VERSION_MAJOR as String, DEFAULT_GET_PROP_VALUE).toInteger())
+        Assert.assertEquals(0, versionProperties.getProperty(ReleaseType.VERSION_MINOR as String, DEFAULT_GET_PROP_VALUE).toInteger())
+        Assert.assertEquals(0, versionProperties.getProperty(ReleaseType.VERSION_REVISION as String, DEFAULT_GET_PROP_VALUE).toInteger())
+        Assert.assertEquals(0, versionProperties.getProperty(ReleaseType.VERSION_BUILD as String, DEFAULT_GET_PROP_VALUE).toInteger())
     }
 
+    static final int TEST_SET_VALUE_ONE = 11
+    static final int TEST_SET_VALUE_TWO = 22
+    static final int TEST_SET_VALUE_THREE = 33
+    static final int TEST_SET_VALUE_FOUR = 44
+
     void testSetProperty() {
+        def versionFile = makeTestVersionInfoFile()
+        PublishTask.initializeVersionFile(versionFile)
+
+        PublishTask.setProperty(versionFile, ReleaseType.VERSION_MAJOR, TEST_SET_VALUE_FOUR)
+        PublishTask.setProperty(versionFile, ReleaseType.VERSION_MINOR, TEST_SET_VALUE_THREE)
+        PublishTask.setProperty(versionFile, ReleaseType.VERSION_REVISION, TEST_SET_VALUE_TWO)
+        PublishTask.setProperty(versionFile, ReleaseType.VERSION_BUILD, TEST_SET_VALUE_ONE)
+
+        def versionProperties = PublishTask.loadVersionProperties(versionFile)
+        Assert.assertEquals(TEST_SET_VALUE_FOUR, versionProperties.getProperty(ReleaseType.VERSION_MAJOR as String, DEFAULT_GET_PROP_VALUE).toInteger())
+        Assert.assertEquals(TEST_SET_VALUE_THREE, versionProperties.getProperty(ReleaseType.VERSION_MINOR as String, DEFAULT_GET_PROP_VALUE).toInteger())
+        Assert.assertEquals(TEST_SET_VALUE_TWO, versionProperties.getProperty(ReleaseType.VERSION_REVISION as String, DEFAULT_GET_PROP_VALUE).toInteger())
+        Assert.assertEquals(TEST_SET_VALUE_ONE, versionProperties.getProperty(ReleaseType.VERSION_BUILD as String, DEFAULT_GET_PROP_VALUE).toInteger())
+    }
+
+    void testValidPropertyValue() {
+        for (ReleaseType type: ReleaseType.values()) {
+            //Test Max
+            Assert.assertFalse(PublishTask.validPropertyValue(type, type.getMaxValue() + 1))
+            Assert.assertTrue(PublishTask.validPropertyValue(type, type.getMaxValue()))
+            Assert.assertTrue(PublishTask.validPropertyValue(type, type.getMaxValue() - 1))
+
+            //Test Min
+            Assert.assertTrue(PublishTask.validPropertyValue(type, 1))
+            Assert.assertTrue(PublishTask.validPropertyValue(type, 0))
+            Assert.assertFalse(PublishTask.validPropertyValue(type, -1))
+        }
     }
 
     void testGetProperty() {
+        def versionFile = makeTestVersionInfoFile()
+        PublishTask.initializeVersionFile(versionFile)
+
+        PublishTask.setProperty(versionFile, ReleaseType.VERSION_MAJOR, TEST_SET_VALUE_FOUR)
+        PublishTask.setProperty(versionFile, ReleaseType.VERSION_MINOR, TEST_SET_VALUE_THREE)
+        PublishTask.setProperty(versionFile, ReleaseType.VERSION_REVISION, TEST_SET_VALUE_TWO)
+        PublishTask.setProperty(versionFile, ReleaseType.VERSION_BUILD, TEST_SET_VALUE_ONE)
+
+        Assert.assertEquals(TEST_SET_VALUE_FOUR, PublishTask.getProperty(versionFile, ReleaseType.VERSION_MAJOR))
+        Assert.assertEquals(TEST_SET_VALUE_THREE, PublishTask.getProperty(versionFile, ReleaseType.VERSION_MINOR))
+        Assert.assertEquals(TEST_SET_VALUE_TWO, PublishTask.getProperty(versionFile, ReleaseType.VERSION_REVISION))
+        Assert.assertEquals(TEST_SET_VALUE_ONE, PublishTask.getProperty(versionFile, ReleaseType.VERSION_BUILD))
     }
 
     void testLoadVersionProperties() {
-    }
+        def versionFile = makeTestVersionInfoFile()
+        PublishTask.initializeVersionFile(versionFile)
 
-    void testPrintCurrentProperties() {
+        PublishTask.setProperty(versionFile, ReleaseType.VERSION_MAJOR, TEST_SET_VALUE_FOUR)
+        PublishTask.setProperty(versionFile, ReleaseType.VERSION_MINOR, TEST_SET_VALUE_THREE)
+        PublishTask.setProperty(versionFile, ReleaseType.VERSION_REVISION, TEST_SET_VALUE_TWO)
+        PublishTask.setProperty(versionFile, ReleaseType.VERSION_BUILD, TEST_SET_VALUE_ONE)
+
+        Properties loadedProperties = PublishTask.loadVersionProperties(versionFile)
+        Assert.assertEquals(TEST_SET_VALUE_FOUR, loadedProperties.getProperty(ReleaseType.VERSION_MAJOR as String, DEFAULT_GET_PROP_VALUE).toInteger())
+        Assert.assertEquals(TEST_SET_VALUE_THREE, loadedProperties.getProperty(ReleaseType.VERSION_MINOR as String, DEFAULT_GET_PROP_VALUE).toInteger())
+        Assert.assertEquals(TEST_SET_VALUE_TWO, loadedProperties.getProperty(ReleaseType.VERSION_REVISION as String, DEFAULT_GET_PROP_VALUE).toInteger())
+        Assert.assertEquals(TEST_SET_VALUE_ONE, loadedProperties.getProperty(ReleaseType.VERSION_BUILD as String, DEFAULT_GET_PROP_VALUE).toInteger())
     }
 
     void testBuildVersionName() {
+        def versionFile = makeTestVersionInfoFile()
+        PublishTask.initializeVersionFile(versionFile)
+
+        PublishTask.setProperty(versionFile, ReleaseType.VERSION_MAJOR, TEST_SET_VALUE_FOUR)
+        PublishTask.setProperty(versionFile, ReleaseType.VERSION_MINOR, TEST_SET_VALUE_THREE)
+        PublishTask.setProperty(versionFile, ReleaseType.VERSION_REVISION, TEST_SET_VALUE_TWO)
+        PublishTask.setProperty(versionFile, ReleaseType.VERSION_BUILD, TEST_SET_VALUE_ONE)
+
+        String versionNameBuild = PublishTask.buildVersionName(versionFile, ReleaseType.VERSION_BUILD)
+        String versionNameMajor = PublishTask.buildVersionName(versionFile, ReleaseType.VERSION_MAJOR)
+        String versionNameMinor = PublishTask.buildVersionName(versionFile, ReleaseType.VERSION_MINOR)
+        String versionNameRevision = PublishTask.buildVersionName(versionFile, ReleaseType.VERSION_REVISION)
+
+        Assert.assertEquals("${TEST_SET_VALUE_FOUR}.${TEST_SET_VALUE_THREE}.${TEST_SET_VALUE_TWO}.${TEST_SET_VALUE_ONE}".toString(), versionNameBuild)
+        Assert.assertEquals("${TEST_SET_VALUE_FOUR}.${TEST_SET_VALUE_THREE}.${TEST_SET_VALUE_TWO}".toString(), versionNameMajor)
+        Assert.assertEquals("${TEST_SET_VALUE_FOUR}.${TEST_SET_VALUE_THREE}.${TEST_SET_VALUE_TWO}".toString(), versionNameMinor)
+        Assert.assertEquals("${TEST_SET_VALUE_FOUR}.${TEST_SET_VALUE_THREE}.${TEST_SET_VALUE_TWO}".toString(), versionNameRevision)
     }
 
     void testBuildVersionNumber() {
+        def versionFile = makeTestVersionInfoFile()
+        PublishTask.initializeVersionFile(versionFile)
+
+        PublishTask.setProperty(versionFile, ReleaseType.VERSION_MAJOR, TEST_SET_VALUE_FOUR)
+        PublishTask.setProperty(versionFile, ReleaseType.VERSION_MINOR, TEST_SET_VALUE_THREE)
+        PublishTask.setProperty(versionFile, ReleaseType.VERSION_REVISION, TEST_SET_VALUE_TWO)
+        PublishTask.setProperty(versionFile, ReleaseType.VERSION_BUILD, TEST_SET_VALUE_ONE)
+
+        int version = PublishTask.buildVersionNumber(versionFile)
+        Assert.assertEquals(443322011, version)
     }
 }
