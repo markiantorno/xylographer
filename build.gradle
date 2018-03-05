@@ -16,6 +16,7 @@ apply plugin: 'maven'
 apply plugin: 'maven-publish'
 apply plugin: "com.gradle.plugin-publish"
 apply plugin: 'groovy'
+apply plugin: 'java'
 apply plugin: 'idea'
 
 dependencies {
@@ -28,6 +29,9 @@ dependencies {
     compile localGroovy()
     compile 'com.android.tools.build:gradle:3.0.0-beta7'
     compile 'org.ajoberstar:grgit:2.1.1'
+
+    testCompile 'junit:junit:4.12'
+
 }
 
 group = GROUP_ID

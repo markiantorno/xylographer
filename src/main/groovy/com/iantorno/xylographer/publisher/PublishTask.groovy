@@ -129,8 +129,8 @@ class PublishTask extends DefaultTask {
         def commit
         def committerDate
         try {
-            println("SEARCHING FOR GIT DATA IN >> " + project.projectDir)
-            Grgit grgit = Grgit.open(currentDir: project.projectDir)
+            println("SEARCHING FOR GIT DATA IN >> " + project.rootDir)
+            Grgit grgit = Grgit.open(currentDir: project.rootDir)
             branch = grgit.branch.current().name
             Commit head = grgit.head()
             commit = head.abbreviatedId
