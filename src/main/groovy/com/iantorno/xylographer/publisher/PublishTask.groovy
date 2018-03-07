@@ -17,9 +17,13 @@ import java.util.regex.Matcher
 class PublishTask extends DefaultTask {
 
     static final String FILE_NAME = 'version.properties'
-    static final String COMMAND_LINE_ARG = 'cut'
+
+    static final String COMMAND_LINE_ARG_CUT = 'cut'
+    static final String COMMAND_LINE_ARG_TAG = 'tag'
+
     static final String ANDROID_APP = 'android'
     static final String ANDROID_LIB = 'android-library'
+
     static final String SNAPSHOT_SUFFIX = "-SNAPSHOT"
     static final String DEFAULT_DATE_FORMAT = "yyyy-MM-dd HH:mm:ss Z"
     static final String BAD_BRANCH_FORMAT = "FORMAT_ERR"
@@ -27,7 +31,8 @@ class PublishTask extends DefaultTask {
     @TaskAction
     void publish() {
 
-        def cutOfficialRelease = project.hasProperty(COMMAND_LINE_ARG)
+        def cutOfficialRelease = project.hasProperty(COMMAND_LINE_ARG_CUT)
+        def tagRelease = project.hasProperty(COMMAND_LINE_ARG_TAG)
 
         project.configure(project) {
             def plugins = project.getPlugins()
@@ -57,6 +62,10 @@ class PublishTask extends DefaultTask {
 
                 String versionName = buildVersionName(versionFile, releaseType)
                 int versionNumber = buildVersionNumber(versionFile)
+
+                if ((!releaseType.equals(ReleaseType.VERSION_BUILD)) && (tagRelease)) {
+                    tagBuild(versionName)
+                }
 
                 if (plugins.hasPlugin(ANDROID_APP)) {
                     String branchSuffix = getCurrentBranchSuffix(info.branch)
@@ -152,6 +161,28 @@ class PublishTask extends DefaultTask {
                 branch: branch,
                 commit: commit,
                 committerDate: committerDate)
+    }
+
+    /**
+     * Generates a {@link GitInfo} object from the current git info.
+     * @return {@link GitInfo}
+     */
+    static void tagBuild(String tagName, File rootDir) {
+        def missing = false
+        def valid = true
+        def branch
+        def commit
+        def committerDate
+        try {
+            println("SEARCHING FOR GIT DATA IN >> " + rootDir)
+            Grgit grgit = Grgit.open(currentDir: rootDir)
+            println("TAGGING AS TAG NAME >> " + tagName)
+            grgit.tag.add(name: tagName)
+            println("ATTEMPTING PUSH")
+            grgit.push(tags: true)
+        } catch (ignored) {
+            println("Error >> " + ignored)
+        }
     }
 
     /**
