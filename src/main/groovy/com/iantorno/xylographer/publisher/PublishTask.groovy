@@ -45,7 +45,7 @@ class PublishTask extends DefaultTask {
 
                 ReleaseType releaseType = determineReleaseTypeFromIdString(currentBuildIdentifier)
 
-                GitInfo info = readGitInfo()
+                GitInfo info = readGitInfo(project.rootDir)
 
                 if (releaseType.equals(ReleaseType.VERSION_BUILD)) {
                     /*
@@ -64,7 +64,7 @@ class PublishTask extends DefaultTask {
                 int versionNumber = buildVersionNumber(versionFile)
 
                 if ((!releaseType.equals(ReleaseType.VERSION_BUILD)) && (tagRelease)) {
-                    tagBuild(versionName)
+                    tagBuild(versionName, project.rootDir)
                 }
 
                 if (plugins.hasPlugin(ANDROID_APP)) {
@@ -131,15 +131,15 @@ class PublishTask extends DefaultTask {
      * Generates a {@link GitInfo} object from the current git info.
      * @return {@link GitInfo}
      */
-    GitInfo readGitInfo() {
+    static GitInfo readGitInfo(File rootDir) {
         def missing = false
         def valid = true
         def branch
         def commit
         def committerDate
         try {
-            println("SEARCHING FOR GIT DATA IN >> " + project.rootDir)
-            Grgit grgit = Grgit.open(currentDir: project.rootDir)
+            println("SEARCHING FOR GIT DATA IN >> " + rootDir)
+            Grgit grgit = Grgit.open(currentDir: rootDir)
             branch = grgit.branch.current().name
             Commit head = grgit.head()
             commit = head.abbreviatedId
@@ -168,11 +168,6 @@ class PublishTask extends DefaultTask {
      * @return {@link GitInfo}
      */
     static void tagBuild(String tagName, File rootDir) {
-        def missing = false
-        def valid = true
-        def branch
-        def commit
-        def committerDate
         try {
             println("SEARCHING FOR GIT DATA IN >> " + rootDir)
             Grgit grgit = Grgit.open(currentDir: rootDir)
