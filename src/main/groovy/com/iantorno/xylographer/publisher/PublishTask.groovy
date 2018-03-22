@@ -122,10 +122,13 @@ class PublishTask extends DefaultTask {
         if(branchName == "staging" || branchName == "master") {
             parsedBranchId = branchName
         }
-        Matcher matcher = branchName =~ /^[A-Z]{2,5}\-\d{1,5}/
-        if (matcher.size() > 0) {
-            parsedBranchId = matcher[0]
+        else {
+            Matcher matcher = branchName =~ /^[A-Z]{2,5}\-\d{1,5}/
+            if (matcher.size() > 0) {
+                parsedBranchId = matcher[0]
+            }
         }
+
         println("Based on the passed in branch name ${branchName}, the resulting version suffix is ${parsedBranchId}")
         return parsedBranchId
     }
