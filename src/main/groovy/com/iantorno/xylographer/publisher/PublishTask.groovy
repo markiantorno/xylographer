@@ -119,6 +119,9 @@ class PublishTask extends DefaultTask {
      */
     static String getCurrentBranchSuffix(String branchName) {
         String parsedBranchId = BAD_BRANCH_FORMAT
+        if(branchName == "staging" || branchName == "master") {
+            parsedBranchId = branchName
+        }
         Matcher matcher = branchName =~ /^[A-Z]{2,5}\-\d{1,5}/
         if (matcher.size() > 0) {
             parsedBranchId = matcher[0]
