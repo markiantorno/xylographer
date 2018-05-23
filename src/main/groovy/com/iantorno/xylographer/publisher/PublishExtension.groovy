@@ -1,4 +1,4 @@
-package com.iantorno.xylographer.publisher
+package com.thaid.xylographer.publisher
 
 /**
  * An extension object for the publish module

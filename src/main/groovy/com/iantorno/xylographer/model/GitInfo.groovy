@@ -1,4 +1,4 @@
-package com.iantorno.xylographer.model
+package com.thaid.xylographer.model
 
 class GitInfo {
     boolean missing

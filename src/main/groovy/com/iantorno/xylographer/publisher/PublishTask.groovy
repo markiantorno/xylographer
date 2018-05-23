@@ -78,8 +78,11 @@ class PublishTask extends DefaultTask {
                         }
                         variant.outputs.all {
                             setVersionCodeOverride(versionNumber)
-                            setVersionNameOverride(versionName)
-                            setVersionNameSuffixOverride(outputBranchSuffix)
+                            if (!versionName.contains("-")) {
+                                setVersionNameOverride(versionName + outputBranchSuffix)
+                            } else{
+                                setVersionNameOverride(versionName)
+                            }
                         }
                     }
                 } else if (plugins.hasPlugin(ANDROID_LIB)) {
@@ -121,10 +124,9 @@ class PublishTask extends DefaultTask {
      */
     static String getCurrentBranchSuffix(String branchName) {
         String parsedBranchId = BAD_BRANCH_FORMAT
-        if(branchName == "staging" || branchName == "master") {
+        if (branchName == "staging" || branchName == "master") {
             parsedBranchId = branchName
-        }
-        else {
+        } else {
             Matcher matcher = branchName =~ /^[A-Z]{2,5}\-\d{1,5}/
             if (matcher.size() > 0) {
                 parsedBranchId = matcher[0]
