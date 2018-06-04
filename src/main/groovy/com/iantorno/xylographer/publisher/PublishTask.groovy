@@ -68,16 +68,21 @@ class PublishTask extends DefaultTask {
                 }
 
                 if (plugins.hasPlugin(ANDROID_APP)) {
+                    String outputBranchSuffix = "";
                     String branchSuffix = getCurrentBranchSuffix(info.branch)
                     println("This has been identified as a non-library project, and will versioned accordingly...")
 
                     android.applicationVariants.all { variant ->
                         if (releaseType.equals(ReleaseType.VERSION_BUILD)) {
-                            versionName = (versionName + "-" + branchSuffix)
+                            outputBranchSuffix = ("-" + branchSuffix)
                         }
                         variant.outputs.all {
                             setVersionCodeOverride(versionNumber)
-                            setVersionNameOverride(versionName)
+                            if (!versionName.contains("-")) {
+                                setVersionNameOverride(versionName + outputBranchSuffix)
+                            } else {
+                                setVersionNameOverride(versionName)
+                            }
                         }
                     }
                 } else if (plugins.hasPlugin(ANDROID_LIB)) {
@@ -119,10 +124,9 @@ class PublishTask extends DefaultTask {
      */
     static String getCurrentBranchSuffix(String branchName) {
         String parsedBranchId = BAD_BRANCH_FORMAT
-        if(branchName == "staging" || branchName == "master") {
+        if (branchName == "staging" || branchName == "master") {
             parsedBranchId = branchName
-        }
-        else {
+        } else {
             Matcher matcher = branchName =~ /^[A-Z]{2,5}\-\d{1,5}/
             if (matcher.size() > 0) {
                 parsedBranchId = matcher[0]
