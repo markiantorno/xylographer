@@ -80,7 +80,7 @@ class PublishTask extends DefaultTask {
                             setVersionCodeOverride(versionNumber)
                             if (!versionName.contains("-")) {
                                 setVersionNameOverride(versionName + outputBranchSuffix)
-                            } else{
+                            } else {
                                 setVersionNameOverride(versionName)
                             }
                         }
