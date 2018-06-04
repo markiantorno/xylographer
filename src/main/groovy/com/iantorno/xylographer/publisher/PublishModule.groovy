@@ -1,10 +1,10 @@
-package com.thaid.xylographer.publisher
+package com.iantorno.xylographer.publisher
 
 import org.gradle.api.Project
 
 /**
  * This class helps us group together the tasks and configurations that are related to Publishing.
- * The module's 'load' method is called in the plugin's entry point at {@link com.thaid.xylographer.Xylographer}
+ * The module's 'load' method is called in the plugin's entry point at {@link com.iantorno.xylographer.Xylographer}
  */
 class PublishModule {
     static void load(Project project) {

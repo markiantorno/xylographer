@@ -45,7 +45,7 @@ pluginBundle {
 
     plugins {
         findbugsPlugin {
-            id = 'com.iantorno.xylographer'
+            id = 'com.thaid.xylographer'
             displayName = 'Android Versioning Plugin'
         }
     }

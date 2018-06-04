@@ -1,6 +1,6 @@
-package com.thaid.xylographer.publisher
+package com.iantorno.xylographer.publisher
 
-import com.thaid.xylographer.model.ReleaseType
+import com.iantorno.xylographer.model.ReleaseType
 import org.junit.Assert
 
 class PublishTaskTest extends GroovyTestCase {

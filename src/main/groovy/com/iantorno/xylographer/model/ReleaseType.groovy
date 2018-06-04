@@ -1,4 +1,4 @@
-package com.thaid.xylographer.model
+package com.iantorno.xylographer.model
 
 enum ReleaseType {
     VERSION_MAJOR("major", 99),

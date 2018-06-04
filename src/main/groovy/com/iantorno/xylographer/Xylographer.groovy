@@ -1,8 +1,10 @@
-package com.thaid.xylographer
+package com.iantorno.xylographer
 
-import com.thaid.xylographer.publisher.PublishTask
+import com.iantorno.xylographer.publisher.PublishTask
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+
+import java.util.regex.Matcher
 
 class Xylographer implements Plugin<Project> {
     @Override
